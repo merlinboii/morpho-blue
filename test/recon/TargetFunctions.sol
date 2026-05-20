@@ -12,6 +12,8 @@ import {Panic} from "@recon/Panic.sol";
 import { AdminTargets } from "./targets/AdminTargets.sol";
 import { DoomsdayTargets } from "./targets/DoomsdayTargets.sol";
 import { ManagersTargets } from "./targets/ManagersTargets.sol";
+import { MockERC20Targets } from "./targets/MockERC20Targets.sol";
+import { MockIRMTargets } from "./targets/MockIRMTargets.sol";
 import { MorphoTargets } from "./targets/MorphoTargets.sol";
 import { OracleMockTargets } from "./targets/OracleMockTargets.sol";
 
@@ -19,6 +21,8 @@ abstract contract TargetFunctions is
     AdminTargets,
     DoomsdayTargets,
     ManagersTargets,
+    MockERC20Targets,
+    MockIRMTargets,
     MorphoTargets,
     OracleMockTargets
 {
