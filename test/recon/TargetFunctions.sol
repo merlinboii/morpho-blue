@@ -17,6 +17,9 @@ import { MockIRMTargets } from "./targets/MockIRMTargets.sol";
 import { MorphoTargets } from "./targets/MorphoTargets.sol";
 import { OracleMockTargets } from "./targets/OracleMockTargets.sol";
 
+// Morpho
+import {MarketParams} from "src/interfaces/IMorpho.sol";
+
 abstract contract TargetFunctions is
     AdminTargets,
     DoomsdayTargets,
@@ -28,11 +31,18 @@ abstract contract TargetFunctions is
 {
     /// CUSTOM TARGET FUNCTIONS - Add your own target functions here ///
 
-    /// === SET UP ENV HANDLERS === ///    
+    /// === SET UP ENV HANDLERS === ///
+
     /// @dev Using uint8 as index so search space is limited to 256
-    /// @dev As per our hardcoded 3 tokens, 256 stills allow fuzzer to try out-of-bound index access
+    /// @dev As per our hardcoded 3 tokens, 256 still allows the fuzzer to try out-of-bound index access   
     function setup_switchCurrentToken(uint8 index) public {
-       mockERC20 = MockERC20(_tokens.at(index));
+       _switchCurrentToken(uint256(index));
+    }
+
+    /// @dev Using uint256 as we allow the fuzzer to create markets without a limit on market amount
+    /// @dev So let it explore (is it too loose?)
+    function setup__switchCurrentMarket(uint256 index) public {
+       _switchCurrentMarket(index);
     }
 
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///

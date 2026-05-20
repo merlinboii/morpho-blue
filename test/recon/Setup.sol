@@ -22,18 +22,28 @@ import {OracleMock} from "src/mocks/OracleMock.sol";
 
 // helpers
 import {EnumerableSet} from "@recon/EnumerableSet.sol";
+import {MarketParams, Id} from "src/interfaces/IMorpho.sol";
+import {MarketParamsLib} from "src/libraries/MarketParamsLib.sol";
 
 abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
     using EnumerableSet for EnumerableSet.AddressSet;
+    using EnumerableSet for EnumerableSet.Bytes32Set;
+    using MarketParamsLib for MarketParams;
+
+    MarketParams market;
 
     Morpho morpho;
-    OracleMock oracleMock;
-    MockIRM mockIRM;
     MockERC20 mockERC20;
-
+    MockIRM mockIRM;
+    OracleMock oracleMock;
+    
+    ///@notice The list of all markets being used
+    EnumerableSet.Bytes32Set private _marketIds;
+    mapping(bytes32 => MarketParams) private _marketData;
+    
     ///@notice The list of all tokens being used
     EnumerableSet.AddressSet private _tokens;
-    
+
     /// === Setup === ///
     /// This contains all calls to be performed in the tester constructor, both for Echidna and Foundry
     function setup() internal virtual override {
@@ -62,6 +72,35 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
         vm.label(token_0, "MockERC20_0");
     }
 
+    /// === HELPERS === /// 
+    /// @dev Using uint256 a base so we can let fuzzer freely explore
+    /// @dev The handler can then bounding the search space first before accessing the set
+    function _switchCurrentToken(uint256 index) internal {
+        mockERC20 = MockERC20(_tokens.at(index));
+    }
+
+    /// @dev Atomically add market id and data
+    /// @dev Returns false if market already exists (for assertion)
+    function _addMarket(MarketParams memory marketParams) internal returns (bool) {
+        Id marketId = marketParams.id();
+        bytes32 marketIdBytes = Id.unwrap(marketId);
+        //@follow-up Is it better to explicitly check from `.contains()` first? 
+        //@follow-up Is it better to separate the add market id and data into two functions?
+        if (!_marketIds.add(marketIdBytes)) {
+            return false; // duplicate
+        }
+        _marketData[marketIdBytes] = marketParams;
+        return true;
+    }
+
+    /// @dev Using uint256 a base so we can let fuzzer freely explore
+    //// @dev The handler can then bounding the search space first before accessing the set 
+    function _switchCurrentMarket(uint256 index) internal {
+        // Switch the market params to the given index
+        bytes32 marketId = _marketIds.at(index);
+        MarketParams memory marketParams = _marketData[marketId];
+        market = marketParams;
+    }
 
     /// === MODIFIERS === ///
     /// Prank admin and actor

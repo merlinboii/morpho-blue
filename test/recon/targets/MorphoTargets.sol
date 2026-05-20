@@ -29,8 +29,13 @@ abstract contract MorphoTargets is
         morpho.borrow(marketParams, assets, shares, onBehalf, receiver);
     }
 
+    /// @dev Create Morpho market and record the market
+    /// @dev Check if the marketId is duplicated
+    /// @dev Applied to the base target because every clamped or overload fn that calls this base will have the same check, and the market will be added properly from all creation handlers
     function morpho_createMarket(MarketParams memory marketParams) public asActor {
         morpho.createMarket(marketParams);
+
+        t(_addMarket(marketParams), "duplicate market");
     }
 
     function morpho_enableIrm(address irm) public asActor {
