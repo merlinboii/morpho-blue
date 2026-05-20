@@ -42,12 +42,24 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
         mockIRM = new MockIRM();
 
         // Deploy mock erc20 tokens (hardcoded at 3 env tokens for now)
-        _tokens.add(address(new MockERC20("Mock ERC20", "M-ERC20", 18)));
-        _tokens.add(address(new MockERC20("Mock ERC20", "M-ERC20", 6)));
-        _tokens.add(address(new MockERC20("Mock ERC20", "M-ERC20", 0)));
+        address token_18 = address(new MockERC20("Mock ERC20", "M-ERC20", 18));
+        address token_6 = address(new MockERC20("Mock ERC20", "M-ERC20", 6));
+        address token_0 = address(new MockERC20("Mock ERC20", "M-ERC20", 0));
+        
+        _tokens.add(token_18);
+        _tokens.add(token_6);
+        _tokens.add(token_0);
         
         // Set the first token as the current token
         mockERC20 = MockERC20(_tokens.at(0));
+
+        // Label addresses
+        vm.label(address(morpho), "Morpho");
+        vm.label(address(oracleMock), "OracleMock");
+        vm.label(address(mockIRM), "MockIRM");
+        vm.label(token_18, "MockERC20_18");
+        vm.label(token_6, "MockERC20_6");
+        vm.label(token_0, "MockERC20_0");
     }
 
     /// === SET UP ENV HANDLERS === ///    
