@@ -62,14 +62,6 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
         vm.label(token_0, "MockERC20_0");
     }
 
-    /// === SET UP ENV HANDLERS === ///    
-
-    /// @dev Using uint8 as index so search space is limited to 256
-    /// @dev As per our hardcoded 3 tokens, 256 stills allow fuzzer to try out-of-bound index access
-    function setup_switchCurrentToken(uint8 index) public {
-       mockERC20 = MockERC20(_tokens.at(index));
-    }
-
 
     /// === MODIFIERS === ///
     /// Prank admin and actor

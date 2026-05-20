@@ -28,6 +28,12 @@ abstract contract TargetFunctions is
 {
     /// CUSTOM TARGET FUNCTIONS - Add your own target functions here ///
 
+    /// === SET UP ENV HANDLERS === ///    
+    /// @dev Using uint8 as index so search space is limited to 256
+    /// @dev As per our hardcoded 3 tokens, 256 stills allow fuzzer to try out-of-bound index access
+    function setup_switchCurrentToken(uint8 index) public {
+       mockERC20 = MockERC20(_tokens.at(index));
+    }
 
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
 }
