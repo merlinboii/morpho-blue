@@ -51,6 +51,9 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
         mockOracle = new OracleMock();
         mockIRM = new MockIRM();
 
+        // Try: manually enable IRM
+        morpho.enableIrm(address(mockIRM));
+
         // Deploy mock erc20 tokens (hardcoded at 3 env tokens for now)
         address token_18 = address(new MockERC20("Mock ERC20", "M-ERC20", 18));
         address token_6 = address(new MockERC20("Mock ERC20", "M-ERC20", 6));

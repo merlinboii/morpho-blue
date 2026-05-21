@@ -17,7 +17,11 @@ abstract contract MorphoTargets is
     Properties
 {
     /// CUSTOM TARGET FUNCTIONS - Add your own target functions here ///
+    // bool canaryCreateMarket;
 
+    // function canary_morpho_createMarket() public {
+    //     t(!canaryCreateMarket, "morpho_createMarket called");
+    // }
 
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
 
@@ -34,8 +38,10 @@ abstract contract MorphoTargets is
     /// @dev Applied to the base target because every clamped or overload fn that calls this base will have the same check, and the market will be added properly from all creation handlers
     function morpho_createMarket(MarketParams memory marketParams) public asActor {
         morpho.createMarket(marketParams);
+        // canaryCreateMarket = true;
 
-        t(_addMarket(marketParams), "duplicate market");
+        /// @dev morpho.createMarket() already block duplicate market creation, assert below again just in case
+        t(_addMarket(marketParams), "duplicate market"); //if the above revert it this line will not be executed so only valid market got added
     }
 
     function morpho_enableIrm(address irm) public asActor {

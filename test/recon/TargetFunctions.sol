@@ -52,11 +52,16 @@ abstract contract TargetFunctions is
     /// @param collatIndex The index of the collateral token (uint8 as we only have 3 tokens)
     /// @param loanIndex The index of the loan token (uint8 as we only have 3 tokens)
     /// @param lltv The lltv to clamp
-    function morpho_createMarket_clamped(uint8 collatIndex, uint8 loanIndex, uint8 lltv) public {
+    function morpho_createMarket_clamped(uint8 collatIndex, uint8 loanIndex, uint256 lltv) public {
         //@follow-up should we mod the index to be within the range of tokens? so we avoid revert?
         address collateralToken = _getTokenAt(uint256(collatIndex));  //> this revert if not found
         address loanToken = _getTokenAt(uint256(loanIndex));          //> this revert if not found
-    
+
+        //@follow-up should we separate this to somewhere?
+        if (!morpho.isLltvEnabled(lltv)) {
+            morpho_enableLltv(lltv);
+        }
+
         // Create marketParams with clamped values
         MarketParams memory clampedParams = MarketParams({
             loanToken: loanToken,
