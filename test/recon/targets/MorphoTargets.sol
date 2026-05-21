@@ -71,7 +71,7 @@ abstract contract MorphoTargets is
     ////// CLAMP FUNCTIONS - Clamp inputs to valid ranges //////
 
     /// @dev Use currentActor as onBehalf (set by fuzzer via switch)
-    function morpho_borrow_clamped(uint256 assets, uint256 shares, address onBehalf, address receiver) public asActor {
+    function morpho_borrow_clamped(uint256 assets, uint256 shares, address receiver) public asActor {
         morpho_borrow(assets, shares, currentActor, receiver);
     }
 
@@ -106,37 +106,37 @@ abstract contract MorphoTargets is
 
     /// @dev Hardcoded empty data for liquidation (no callback triggered)
     /// @dev Use currentActor as borrower (set by fuzzer via switch)
-    function morpho_liquidate_clamped(address borrower, uint256 seizedAssets, uint256 repaidShares, bytes memory data) public {
+    function morpho_liquidate_clamped(uint256 seizedAssets, uint256 repaidShares, bytes memory data) public {
        morpho_liquidate(currentActor, seizedAssets, repaidShares, "");
     }
 
     /// @dev Hardcoded empty data for liquidation (no callback triggered)
     /// @dev Use currentActor as onBehalf (set by fuzzer via switch)
-    function morpho_repay_clamped(uint256 assets, uint256 shares, address onBehalf, bytes memory data) public {
+    function morpho_repay_clamped(uint256 assets, uint256 shares) public {
         morpho_repay(assets, shares, currentActor, "");
     }
 
     /// @dev Hardcoded empty data for liquidation (no callback triggered)
     /// @dev Use currentActor as onBehalf (set by fuzzer via switch)
-    function morpho_supply_clamped(uint256 assets, uint256 shares, address onBehalf, bytes memory data) public {
+    function morpho_supply_clamped(uint256 assets, uint256 shares) public {
         morpho_supply(assets, shares, currentActor, "");
     }
 
     /// @dev Hardcoded empty data for liquidation (no callback triggered)
     /// @dev Use currentActor as onBehalf (set by fuzzer via switch)
-    function morpho_supplyCollateral_clamped(uint256 assets, address onBehalf, bytes memory data) public {
+    function morpho_supplyCollateral_clamped(uint256 assets) public {
         morpho_supplyCollateral(assets, currentActor, "");
     }
 
     /// @dev Hardcoded empty data for liquidation (no callback triggered)
     /// @dev Use currentActor as onBehalf (set by fuzzer via switch)
-    function morpho_withdraw_clamped(uint256 assets, uint256 shares, address onBehalf, address receiver) public {
+    function morpho_withdraw_clamped(uint256 assets, uint256 shares, address receiver) public {
         morpho_withdraw(assets, shares, currentActor, receiver);
     }
 
     /// @dev Hardcoded empty data for liquidation (no callback triggered)
     /// @dev Use currentActor as onBehalf (set by fuzzer via switch)
-    function morpho_withdrawCollateral_clamped(uint256 assets, address onBehalf, address receiver) public {
+    function morpho_withdrawCollateral_clamped(uint256 assets, address receiver) public {
         morpho_withdrawCollateral(assets, currentActor, receiver);
     }
 
