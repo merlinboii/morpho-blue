@@ -37,6 +37,10 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
     MockIRM mockIRM;
     OracleMock mockOracle;
     
+    address currentActor;
+    ///@notice The list of all actors being used
+    EnumerableSet.AddressSet private _actors;
+
     ///@notice The list of all markets being used
     EnumerableSet.Bytes32Set private _marketIds;
     mapping(bytes32 => MarketParams) private _marketData;
@@ -66,6 +70,12 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
         // Set the first token as the current token
         mockERC20 = MockERC20(_getTokenAt(0));
 
+        // Add address(this) as an actor
+        _actors.add(address(this));
+        
+        // Set the first actor as the current actor
+        currentActor = _getActorAt(0);
+        
         // Label addresses
         vm.label(address(morpho), "Morpho");
         vm.label(address(mockOracle), "OracleMock");
@@ -76,6 +86,7 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
     }
 
     /// === HELPERS === /// 
+
     /// @dev Using uint256 a base so we can let fuzzer freely explore
     /// @dev The handler can then bounding the search space first before accessing the set
     function _switchCurrentToken(uint256 index) internal {
@@ -87,6 +98,20 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
     /// @dev revert if the index is out of bound
     function _getTokenAt(uint256 index) internal view returns (address) {
         return _tokens.at(index);
+    }
+
+    /// @dev Using uint256 a base so we can let fuzzer freely explore
+    function _switchCurrentActor(uint256 index) internal {
+        currentActor = _getActorAt(index);
+    }
+
+    function _getActorAt(uint256 index) internal view returns (address) {
+        return _actors.at(index);
+    }
+
+    /// @dev Silent revert if actor already exists
+    function _tryAddActor(address actor) internal {
+        _actors.add(actor);
     }
 
     /// @dev Atomically add market id and data
