@@ -30,7 +30,7 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using MarketParamsLib for MarketParams;
 
-    MarketParams market;
+    MarketParams marketParams;
 
     Morpho morpho;
     MockERC20 mockERC20;
