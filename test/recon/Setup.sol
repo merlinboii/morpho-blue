@@ -35,7 +35,7 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
     Morpho morpho;
     MockERC20 mockERC20;
     MockIRM mockIRM;
-    OracleMock oracleMock;
+    OracleMock mockOracle;
     
     ///@notice The list of all markets being used
     EnumerableSet.Bytes32Set private _marketIds;
@@ -48,7 +48,7 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
     /// This contains all calls to be performed in the tester constructor, both for Echidna and Foundry
     function setup() internal virtual override {
         morpho = new Morpho(address(this));
-        oracleMock = new OracleMock();
+        mockOracle = new OracleMock();
         mockIRM = new MockIRM();
 
         // Deploy mock erc20 tokens (hardcoded at 3 env tokens for now)
@@ -61,11 +61,11 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
         _tokens.add(token_0);
         
         // Set the first token as the current token
-        mockERC20 = MockERC20(_tokens.at(0));
+        mockERC20 = MockERC20(_getTokenAt(0));
 
         // Label addresses
         vm.label(address(morpho), "Morpho");
-        vm.label(address(oracleMock), "OracleMock");
+        vm.label(address(mockOracle), "OracleMock");
         vm.label(address(mockIRM), "MockIRM");
         vm.label(token_18, "MockERC20_18");
         vm.label(token_6, "MockERC20_6");
@@ -76,7 +76,14 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
     /// @dev Using uint256 a base so we can let fuzzer freely explore
     /// @dev The handler can then bounding the search space first before accessing the set
     function _switchCurrentToken(uint256 index) internal {
-        mockERC20 = MockERC20(_tokens.at(index));
+        mockERC20 = MockERC20(_getTokenAt(index));
+    }
+
+    /// @dev Using uint256 a base so we can let fuzzer freely explore
+    /// @dev The handler can then bounding the search space first before accessing the set
+    /// @dev revert if the index is out of bound
+    function _getTokenAt(uint256 index) internal view returns (address) {
+        return _tokens.at(index);
     }
 
     /// @dev Atomically add market id and data

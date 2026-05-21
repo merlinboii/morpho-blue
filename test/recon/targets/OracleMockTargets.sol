@@ -22,6 +22,6 @@ abstract contract OracleMockTargets is
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
 
     function oracleMock_setPrice(uint256 newPrice) public asActor {
-        oracleMock.setPrice(newPrice);
+        mockOracle.setPrice(newPrice);
     }
 }
