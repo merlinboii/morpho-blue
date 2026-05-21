@@ -108,8 +108,8 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
     function _switchCurrentMarket(uint256 index) internal {
         // Switch the market params to the given index
         bytes32 marketId = _marketIds.at(index);
-        MarketParams memory marketParams = _marketData[marketId];
-        market = marketParams;
+        MarketParams memory _marketParams = _marketData[marketId];
+        marketParams = _marketParams;
     }
 
     /// === MODIFIERS === ///
