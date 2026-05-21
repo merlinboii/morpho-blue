@@ -45,5 +45,29 @@ abstract contract TargetFunctions is
        _switchCurrentMarket(index);
     }
 
+    /// @dev Clamped function for morpho_createMarket
+    /// @dev This will clamp the marketParams to using our hardcoded tokens
+    /// @dev Hardcoded oracle and irm for simplicity (as now we only have 1 oracle and 1 irm)
+    /// @dev We dont need to pass the whole marketParams as we are clamping it, we only the `lltv`
+    /// @param collatIndex The index of the collateral token (uint8 as we only have 3 tokens)
+    /// @param loanIndex The index of the loan token (uint8 as we only have 3 tokens)
+    /// @param lltv The lltv to clamp
+    function morpho_createMarket_clamped(uint8 collatIndex, uint8 loanIndex, uint8 lltv) public {
+        //@follow-up should we mod the index to be within the range of tokens? so we avoid revert?
+        address collateralToken = _getTokenAt(uint256(collatIndex));  //> this revert if not found
+        address loanToken = _getTokenAt(uint256(loanIndex));          //> this revert if not found
+    
+        // Create marketParams with clamped values
+        MarketParams memory clampedParams = MarketParams({
+            loanToken: loanToken,
+            collateralToken: collateralToken,
+            oracle: address(mockOracle),
+            irm: address(mockIRM),
+            lltv: lltv
+        });
+        
+        morpho_createMarket(clampedParams);
+    }
+
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
 }
