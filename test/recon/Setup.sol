@@ -31,6 +31,8 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
     using EnumerableSet for EnumerableSet.UintSet;
     using MarketParamsLib for MarketParams;
 
+    uint256 constant INITIAL_BALANCE_WHOLE = 100_000_000;
+
     address currentActor;
     uint256 currentLltv;
     MarketParams marketParams;
@@ -39,8 +41,7 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
     MockERC20 mockERC20;
     MockIRM mockIRM;
     OracleMock mockOracle;
-
-     
+    
     ///@notice The list of all actors being used
     EnumerableSet.AddressSet private _actors;
 
@@ -139,7 +140,7 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
 
             for(uint256 j = 0; j < _tokens.length(); j++) {
                 MockERC20 _token = MockERC20(_getTokenAt(j));
-                _token.mint(actor, 1000e18);
+                _token.mint(actor, INITIAL_BALANCE_WHOLE * 10**_token.decimals());
 
                 vm.prank(actor);
                 _token.approve(address(morpho), type(uint256).max);
