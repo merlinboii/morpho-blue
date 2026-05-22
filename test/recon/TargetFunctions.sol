@@ -41,14 +41,25 @@ abstract contract TargetFunctions is
 
     /// @dev Using uint256 as we allow the fuzzer to create markets without a limit on number of markets
     /// @dev So let it explore (is it too loose?)
-    function setup__switchCurrentMarket(uint256 index) public {
-       _switchCurrentMarket(index);
+    /// @dev Explicitly disabled for now
+    // function setup__switchCurrentMarket(uint256 index) public {
+    //    _switchCurrentMarket(index);
+    // }
+
+    /// @dev Using uint256 as we allow the fuzzer to create markets without a limit on number of markets
+    /// @dev So let it explore (is it too loose?)
+    function setup__switchCurrentOperableMarket(uint256 index) public {
+       _switchCurrentOperableMarket(index);
     }
 
     /// @dev Using uint256 as we allow the fuzzer to add actors via successful supply without a limit on number of actors
     /// @dev So let it explore (is it too loose?)
     function setup_switchCurrentActor(uint256 index) public {
         _switchCurrentActor(index);
+    }
+
+    function setup_switchCurrentLltv(uint8 index) public {
+        _switchCurrentLltv(uint256(index));
     }
 
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///

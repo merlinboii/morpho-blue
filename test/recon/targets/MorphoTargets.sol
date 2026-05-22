@@ -75,30 +75,24 @@ abstract contract MorphoTargets is
         morpho_borrow(assets, shares, currentActor, receiver);
     }
 
-    /// @dev Clamped function for morpho_createMarket
-    /// @dev This will clamp the marketParams to using our hardcoded tokens
-    /// @dev Hardcoded oracle and irm for simplicity (as now we only have 1 oracle and 1 irm)
-    /// @dev We dont need to pass the whole marketParams as we are clamping it, we only the `lltv`
-    /// @param collatIndex The index of the collateral token (uint8 as we only have 3 tokens)
-    /// @param loanIndex The index of the loan token (uint8 as we only have 3 tokens)
-    /// @param lltv The lltv to clamp
-    function morpho_createMarket_clamped(uint8 collatIndex, uint8 loanIndex, uint256 lltv) public {
+    /// @dev Clamped function for morpho_createMarket using governance-approved LLTVs
+    /// @dev ref: https://docs.morpho.org/learn/concepts/market/#lltvs
+    /// @dev Fuzzer picks LLTV from setup values via switching
+    /// @dev Reduces (lltv, price) combinations in HF calculation since LLTV is protocol-controlled while price should stay widely fuzzed
+    /// @dev Should help fuzzer find valid HF scenarios
+    /// @param collatIndex The index of the collateral token
+    /// @param loanIndex The index of the loan token
+    function morpho_createMarket_clamped(uint8 collatIndex, uint8 loanIndex) public {
         //@follow-up should we mod the index to be within the range of tokens? so we avoid revert?
         address collateralToken = _getTokenAt(uint256(collatIndex));  //> this revert if not found
         address loanToken = _getTokenAt(uint256(loanIndex));          //> this revert if not found
 
-        //@follow-up should we separate this to somewhere?
-        if (!morpho.isLltvEnabled(lltv)) {
-            morpho_enableLltv(lltv);
-        }
-
-        // Create marketParams with clamped values
         MarketParams memory clampedParams = MarketParams({
             loanToken: loanToken,
             collateralToken: collateralToken,
             oracle: address(mockOracle),
             irm: address(mockIRM),
-            lltv: lltv
+            lltv: currentLltv
         });
         
         morpho_createMarket(clampedParams);
@@ -159,6 +153,7 @@ abstract contract MorphoTargets is
         morpho.createMarket(marketParams);
         canaryCreateMarket = true;
 
+        //@follow-up Should I register it here or only register within clamped version? since the added market from here can contain invalid market params that cannot continue (non-erc20 vollat or loan) so fuzzer will also switch to that type of market and the operation on thoes market revert
         /// @dev morpho.createMarket() already block duplicate market creation, assert below again just in case
         t(_addMarket(marketParams), "duplicate market"); //if the above revert it this line will not be executed so only valid market got added
     }
@@ -212,6 +207,7 @@ abstract contract MorphoTargets is
         morpho.supply(marketParams, assets, shares, onBehalf, data);
 
         canarySupply = true;
+
         /// @dev Add actor on supply/supplyCollateral as they are the first actions an actor can take to create position
         _tryAddActor(onBehalf);
     }
