@@ -111,19 +111,19 @@ abstract contract MorphoTargets is
     /// @dev Hardcoded empty data for liquidation (no callback triggered)
     /// @dev Clamped `borrower` with `indexActor` (so it not only do self-liquidation)
     /// @dev indexActor is uint8 as the actors is bounded in our setup
-    function morpho_liquidate_clamped(uint256 indexActor, uint256 seizedAssets, uint256 repaidShares) public {
+    function morpho_liquidate_clamped(uint8 indexActor, uint256 seizedAssets, uint256 repaidShares) public {
        morpho_liquidate(_getActorAt(indexActor), seizedAssets, repaidShares, "");
     }
 
     /// @dev Clamped `borrower` and `assets` amount
     /// @dev indexActor is uint8 as the actors is bounded in our setup
-    function morpho_liquidate_clamped_byShares(uint256 indexActor, uint256 repaidShares) public {
+    function morpho_liquidate_clamped_byShares(uint8 indexActor, uint256 repaidShares) public {
         morpho_liquidate(_getActorAt(indexActor), 0, repaidShares, "");
     }
 
     /// @dev Clamped `borrower` and `shares` amount
     /// @dev indexActor is uint8 as the actors is bounded in our setup
-    function morpho_liquidate_clamped_byAssets(uint256 indexActor, uint256 seizedAssets) public {
+    function morpho_liquidate_clamped_byAssets(uint8 indexActor, uint256 seizedAssets) public {
         morpho_liquidate(_getActorAt(indexActor), seizedAssets, 0, "");
     }
 
