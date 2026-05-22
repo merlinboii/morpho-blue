@@ -106,12 +106,11 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
         _tokens.add(token_6);
         _tokens.add(token_0);
 
-        
         // Set the first token as the current token
         mockERC20 = MockERC20(_getTokenAt(0));
 
-        // Add address(this) as an actor
-        _actors.add(address(this));
+        // Add initial multiple actors and seed them the tokens
+        _setUpActors();
         
         // Set the first actor as the current actor
         currentActor = _getActorAt(0);
@@ -126,6 +125,27 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
     }
 
     /// === HELPERS === /// 
+
+    /// @dev this will reduce the fuzzer work to have sequence on mint and approve
+    function _setUpActors() internal {
+        _actors.add(address(this));
+        _actors.add(address(0x12));
+        _actors.add(address(0x34));
+        _actors.add(address(0x56));
+        _actors.add(address(0xff));
+        
+        for(uint256 i = 0; i < _actors.length(); i++) {
+            address actor = _getActorAt(i);
+
+            for(uint256 j = 0; j < _tokens.length(); j++) {
+                MockERC20 _token = MockERC20(_getTokenAt(j));
+                _token.mint(actor, 1000e18);
+
+                vm.prank(actor);
+                _token.approve(address(morpho), type(uint256).max);
+            }
+        }
+    }
 
     /// @dev Using uint256 a base so we can let fuzzer freely explore
     /// @dev The handler can then bounding the search space first before accessing the set
@@ -222,6 +242,10 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
         marketParams = _marketParams;
     }
 
+    function _marketParamsToId(MarketParams memory marketParams) internal pure returns (Id) {
+        return marketParams.id();
+    }
+
     /// === MODIFIERS === ///
     /// Prank admin and actor
     
@@ -231,7 +255,8 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, Utils {
     }
 
     modifier asActor {
-        vm.prank(address(_getActor()));
+        // vm.prank(address(_getActor()));
+        vm.prank(currentActor);
         _;
     }
 }
