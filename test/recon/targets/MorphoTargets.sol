@@ -257,7 +257,8 @@ abstract contract MorphoTargets is
         canarySupply = true;
 
         /// @dev Add actor on supply/supplyCollateral as they are the first actions an actor can take to create position
-        _tryAddActor(onBehalf);
+        /// @dev Disable for now so we only operate on existing actors
+        // _tryAddActor(onBehalf);
     }
 
     function morpho_supplyCollateral(uint256 assets, address onBehalf, bytes memory data) public asActor {
@@ -266,7 +267,8 @@ abstract contract MorphoTargets is
         canarySupplyCollateral = true;
 
         /// @dev Add actor on supply/supplyCollateral as they are the first actions an actor can take to create position
-        _tryAddActor(onBehalf);
+        /// @dev Disable for now so we only operate on existing actors
+        // _tryAddActor(onBehalf);
     }
 
     function morpho_withdraw(uint256 assets, uint256 shares, address onBehalf, address receiver) public asActor {
