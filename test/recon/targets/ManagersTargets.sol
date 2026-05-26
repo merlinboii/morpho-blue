@@ -16,6 +16,16 @@ abstract contract ManagersTargets is
     BaseTargetFunctions,
     Properties
 {
+
+    // == MARKET RELATED HANDLERS == //
+
+    /// @dev Start acting as another actor
+    function switchMarket(uint256 entropy) public {
+        _switchMarket(entropy);
+
+        marketParams = _getMarket();
+    }
+
     // == ACTOR HANDLERS == //
     
     /// @dev Start acting as another actor

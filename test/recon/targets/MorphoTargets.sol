@@ -82,6 +82,7 @@ abstract contract MorphoTargets is
 
     /// @dev Clamped `onBehalf` and `shares` amount
     function morpho_borrow_clamped_byAssets(uint256 assets, address receiver) public {
+        //@follow-up this way we focus only on execute as self-borrower as same as self-iquidation
         morpho_borrow(assets, 0, currentActor, receiver);
     }
 
@@ -90,12 +91,12 @@ abstract contract MorphoTargets is
     /// @dev Fuzzer picks LLTV from setup values via switching
     /// @dev Reduces (lltv, price) combinations in HF calculation since LLTV is protocol-controlled while price should stay widely fuzzed
     /// @dev Should help fuzzer find valid HF scenarios
-    /// @param collatIndex The index of the collateral token
-    /// @param loanIndex The index of the loan token
-    function morpho_createMarket_clamped(uint8 collatIndex, uint8 loanIndex) public {
-        //@follow-up should we mod the index to be within the range of tokens? so we avoid revert?
-        address collateralToken = _getTokenAt(uint256(collatIndex));  //> this revert if not found
-        address loanToken = _getTokenAt(uint256(loanIndex));          //> this revert if not found
+    /// @param colEntropy The entropy of the collateral token
+    /// @param loanEntropy The entropy of the loan token
+    function morpho_createMarket_clamped(uint8 colEntropy, uint8 loanEntropy) public {
+        address[] memory allAssets = _getAssets();
+        address collateralToken = allAssets[colEntropy % allAssets.length];
+        address loanToken = allAssets[loanEntropy % allAssets.length];          
 
         MarketParams memory clampedParams = MarketParams({
             loanToken: loanToken,
@@ -106,25 +107,28 @@ abstract contract MorphoTargets is
         });
         
         morpho_createMarket(clampedParams);
+
+        _addMarket(marketParams);
     }
 
     /// @dev Hardcoded empty data for liquidation (no callback triggered)
     /// @dev Clamped `borrower` with `indexActor` (so it not only do self-liquidation)
     /// @dev indexActor is uint8 as the actors is bounded in our setup
-    function morpho_liquidate_clamped(uint8 indexActor, uint256 seizedAssets, uint256 repaidShares) public {
-       morpho_liquidate(_getActorAt(indexActor), seizedAssets, repaidShares, "");
+    function morpho_liquidate_clamped(uint256 seizedAssets, uint256 repaidShares) public {
+       // max - colaltearlToLiqudiate so that we guild the liquidation to == max of balance but not foruce it to be max as it can pass belowign max
+       morpho_liquidate(currentActor, seizedAssets, repaidShares, "");
     }
 
     /// @dev Clamped `borrower` and `assets` amount
     /// @dev indexActor is uint8 as the actors is bounded in our setup
-    function morpho_liquidate_clamped_byShares(uint8 indexActor, uint256 repaidShares) public {
-        morpho_liquidate(_getActorAt(indexActor), 0, repaidShares, "");
+    function morpho_liquidate_clamped_byShares(uint256 repaidShares) public {
+        morpho_liquidate(currentActor, 0, repaidShares, "");
     }
 
     /// @dev Clamped `borrower` and `shares` amount
     /// @dev indexActor is uint8 as the actors is bounded in our setup
-    function morpho_liquidate_clamped_byAssets(uint8 indexActor, uint256 seizedAssets) public {
-        morpho_liquidate(_getActorAt(indexActor), seizedAssets, 0, "");
+    function morpho_liquidate_clamped_byAssets(uint256 seizedAssets) public {
+        morpho_liquidate(currentActor, seizedAssets, 0, "");
     }
 
     /// @dev Hardcoded empty data for liquidation (no callback triggered)
@@ -202,11 +206,8 @@ abstract contract MorphoTargets is
     /// @dev Applied to the base target because every clamped or overload fn that calls this base will have the same check, and the market will be added properly from all creation handlers
     function morpho_createMarket(MarketParams memory marketParams) public asActor {
         morpho.createMarket(marketParams);
+        
         canaryCreateMarket = true;
-
-        //@follow-up Should I register it here or only register within clamped version? since the added market from here can contain invalid market params that cannot continue (non-erc20 vollat or loan) so fuzzer will also switch to that type of market and the operation on thoes market revert
-        /// @dev morpho.createMarket() already block duplicate market creation, assert below again just in case
-        t(_addMarket(marketParams), "duplicate market"); //if the above revert it this line will not be executed so only valid market got added
     }
 
     function morpho_enableIrm(address irm) public asActor {
@@ -226,6 +227,7 @@ abstract contract MorphoTargets is
         morpho.liquidate(marketParams, borrower, seizedAssets, repaidShares, data);
 
         canaryLiquidate = true;
+
     }
 
     function morpho_repay(uint256 assets, uint256 shares, address onBehalf, bytes memory data) public asActor {
@@ -258,26 +260,19 @@ abstract contract MorphoTargets is
         morpho.supply(marketParams, assets, shares, onBehalf, data);
 
         canarySupply = true;
-
-        /// @dev Add actor on supply/supplyCollateral as they are the first actions an actor can take to create position
-        /// @dev Disable for now so we only operate on existing actors
-        // _tryAddActor(onBehalf);
     }
 
     function morpho_supplyCollateral(uint256 assets, address onBehalf, bytes memory data) public asActor {
         morpho.supplyCollateral(marketParams, assets, onBehalf, data);
         
         canarySupplyCollateral = true;
-
-        /// @dev Add actor on supply/supplyCollateral as they are the first actions an actor can take to create position
-        /// @dev Disable for now so we only operate on existing actors
-        // _tryAddActor(onBehalf);
     }
 
     function morpho_withdraw(uint256 assets, uint256 shares, address onBehalf, address receiver) public asActor {
         morpho.withdraw(marketParams, assets, shares, onBehalf, receiver);
 
         canaryWithdraw = true;
+        
     }
 
     function morpho_withdrawCollateral(uint256 assets, address onBehalf, address receiver) public asActor {
