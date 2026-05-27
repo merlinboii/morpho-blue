@@ -7,6 +7,7 @@ import {TargetFunctions} from "./TargetFunctions.sol";
 
 // echidna . --contract CryticTester --config echidna.yaml --format text --workers 16 --test-limit 1000000
 // medusa fuzz
+// recon fuzz . --contract CryticTester --config echidna.yaml --recon-corpus-dir corpus-recon --format text --workers 16 --test-limit 1000000
 contract CryticTester is TargetFunctions, CryticAsserts {
     constructor() payable {
         setup();
