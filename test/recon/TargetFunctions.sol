@@ -32,7 +32,7 @@ abstract contract TargetFunctions is
     /// === SET UP ENV HANDLERS === /// 
 
     function setup_switchCurrentLltv(uint8 index) public {
-        // _switchCurrentLltv(uint256(index));
+        _switchCurrentLltv(uint256(index));
     }
 
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///

@@ -8,11 +8,9 @@ import {vm} from "@chimera/Hevm.sol";
 // Managers
 import {ActorManager} from "@recon/ActorManager.sol";
 import {AssetManager} from "@recon/AssetManager.sol";
-
 import {MarketManager} from "./managers/MarketManager.sol";
 // Helpers
 import {Utils} from "@recon/Utils.sol";
-
 // Your deps
 import {Morpho} from "src/Morpho.sol";
 
@@ -89,7 +87,7 @@ abstract contract Setup is BaseSetup, ActorManager, AssetManager, MarketManager,
     /// @dev this will reduce the fuzzer work to have sequence on mint and approve 
     /// @dev it will also set the approval for all actors to morpho
     function _setupActors() internal {
-        _addActor(address(this));
+        // Note: address(this) is already added by ActorManager constructor
         _addActor(address(0x12));
         _addActor(address(0x34));
         _addActor(address(0x56));
