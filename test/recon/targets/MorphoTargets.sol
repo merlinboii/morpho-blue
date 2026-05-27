@@ -11,82 +11,19 @@ import {vm} from "@chimera/Hevm.sol";
 import {Panic} from "@recon/Panic.sol";
 
 import "src/Morpho.sol";
+import {MarketParamsLib} from "src/libraries/MarketParamsLib.sol";
 
 abstract contract MorphoTargets is
     BaseTargetFunctions,
     Properties
 {
+    using MarketParamsLib for MarketParams;
+    
     /// CUSTOM TARGET FUNCTIONS - Add your own target functions here ///
-    
-    //////////// CANARY FUNCTIONS - Check if sth work or not ////////////
-    bool canaryBorrow;
-    bool canaryCreateMarket;
-    bool canaryLiquidate;
-    bool canaryRepay;
-    bool canarySupply;
-    bool canarySupplyCollateral;
-    bool canaryWithdraw;
-    bool canaryWithdrawCollateral;
 
-    /// @dev Check if morpho_borrow has successful call
-    function canary_morpho_borrow() public {
-        t(!canaryBorrow, "morpho_borrow called");
-    }
+    //////////// CLAMPED FUNCTIONS ////////////
 
-    /// @dev Check if morpho_createMarket has successful call
-    function canary_morpho_createMarket() public {
-        t(!canaryCreateMarket, "morpho_createMarket called");
-    }
-    
-    /// @dev Check if morpho_liquidate has successful call
-    function canary_morpho_liquidate() public {
-        t(!canaryLiquidate, "morpho_liquidate called");
-    }
-    
-    /// @dev Check if morpho_repay has successful call
-    function canary_morpho_repay() public {
-        t(!canaryRepay, "morpho_repay called");
-    }
-    
-    /// @dev Check if morpho_supply has successful call
-    function canary_morpho_supply() public {
-        t(!canarySupply, "morpho_supply called");
-    }
-    
-    /// @dev Check if morpho_supplyCollateral has successful call
-    function canary_morpho_supplyCollateral() public {
-        t(!canarySupplyCollateral, "morpho_supplyCollateral called");
-    }
-    
-    /// @dev Check if morpho_withdraw has successful call
-    function canary_morpho_withdraw() public {
-        t(!canaryWithdraw, "morpho_withdraw called");
-    }
-    
-    /// @dev Check if morpho_withdrawCollateral has successful call
-    function canary_morpho_withdrawCollateral() public {
-        t(!canaryWithdrawCollateral, "morpho_withdrawCollateral called");
-    }
-
-    //////////// CLAMP FUNCTIONS - Clamp inputs to valid ranges ////////////
-
-    /// @dev Use currentActor as onBehalf (set by fuzzer via switch)
-    function morpho_borrow_clamped(uint256 assets, uint256 shares, address receiver) public asActor {
-        morpho_borrow(assets, shares, currentActor, receiver);
-    }
-
-    /// @dev Clamped `onBehalf` and `assets` amount
-    function morpho_borrow_clamped_byShares(uint256 shares, address receiver) public {
-        morpho_borrow(0, shares, currentActor, receiver);
-    }
-
-    /// @dev Clamped `onBehalf` and `shares` amount
-    function morpho_borrow_clamped_byAssets(uint256 assets, address receiver) public {
-        //@follow-up this way we focus only on execute as self-borrower as same as self-iquidation
-        morpho_borrow(assets, 0, currentActor, receiver);
-    }
-
-    /// @dev Clamped function for morpho_createMarket using governance-approved LLTVs
+    /// @dev Clamped function for morpho_createMarket using assets from AssetManager and governance-approved LLTVs
     /// @dev ref: https://docs.morpho.org/learn/concepts/market/#lltvs
     /// @dev Fuzzer picks LLTV from setup values via switching
     /// @dev Reduces (lltv, price) combinations in HF calculation since LLTV is protocol-controlled while price should stay widely fuzzed
@@ -108,85 +45,79 @@ abstract contract MorphoTargets is
         
         morpho_createMarket(clampedParams);
 
-        _addMarket(marketParams);
+        _addMarket(clampedParams);
     }
 
     /// @dev Hardcoded empty data for liquidation (no callback triggered)
-    /// @dev Clamped `borrower` with `indexActor` (so it not only do self-liquidation)
-    /// @dev indexActor is uint8 as the actors is bounded in our setup
-    function morpho_liquidate_clamped(uint256 seizedAssets, uint256 repaidShares) public {
-       // max - colaltearlToLiqudiate so that we guild the liquidation to == max of balance but not foruce it to be max as it can pass belowign max
-       morpho_liquidate(currentActor, seizedAssets, repaidShares, "");
+    function morpho_supply_clamped(uint256 assets, uint256 shares, uint256 onBehalfEntropy) public {
+        address onBehalf = _getActors()[onBehalfEntropy % _getActors().length];
+        morpho_supply(assets, shares, onBehalf, "");
     }
 
-    /// @dev Clamped `borrower` and `assets` amount
-    /// @dev indexActor is uint8 as the actors is bounded in our setup
-    function morpho_liquidate_clamped_byShares(uint256 repaidShares) public {
-        morpho_liquidate(currentActor, 0, repaidShares, "");
+    /// @dev Clamped withdraw that leaves some/none supply shares in the position
+    /// @dev Useful for testing partial withdrawals without fully draining the position (0 = fully drain)
+    function morpho_withdraw_leaveSupplyShares_clamped(uint256 leaveSupplyShares, uint256 onBehalfEntropy, address receiver) public {
+        address onBehalf = _getActors()[onBehalfEntropy % _getActors().length];
+
+        (uint256 maxSupplyShares,,) = morpho.position(marketParams.id(), onBehalf);
+        leaveSupplyShares %= (maxSupplyShares + 1);
+        uint256 actualWithdraw = maxSupplyShares - leaveSupplyShares;
+
+        morpho_withdraw(0, actualWithdraw, onBehalf, receiver);
     }
 
-    /// @dev Clamped `borrower` and `shares` amount
-    /// @dev indexActor is uint8 as the actors is bounded in our setup
-    function morpho_liquidate_clamped_byAssets(uint256 seizedAssets) public {
-        morpho_liquidate(currentActor, seizedAssets, 0, "");
-    }
-
-    /// @dev Hardcoded empty data for liquidation (no callback triggered)
-    /// @dev Use currentActor as onBehalf (set by fuzzer via switch)
-    function morpho_repay_clamped(uint256 assets, uint256 shares) public {
-        morpho_repay(assets, shares, currentActor, "");
-    }
-
-    /// @dev Clamped `onBehalf` and `assets` amount
-    function morpho_repay_clamped_byShares(uint256 shares, address receiver) public {
-        morpho_repay(0, shares, currentActor, "");
-    }
-
-    /// @dev Clamped `onBehalf` and `shares` amount
-    function morpho_repay_clamped_byAssets(uint256 assets, address receiver) public {
-        morpho_repay(assets, 0, currentActor, "");
+    /// @dev Clamped `onBehalf`
+    /// @notice The fuzzer should find both self and onBehalf scenarios with this function, which it requies the selected onBehalf to authorize the actor beforehand
+    function morpho_borrow_clamped(uint256 assets, uint256 shares, uint256 onBehalfEntropy, address receiver) public {
+        address onBehalf = _getActors()[onBehalfEntropy % _getActors().length];
+        morpho_borrow(assets, shares, onBehalf, receiver);
     }
 
     /// @dev Hardcoded empty data for liquidation (no callback triggered)
-    /// @dev Use currentActor as onBehalf (set by fuzzer via switch)
-    function morpho_supply_clamped(uint256 assets, uint256 shares) public {
-        morpho_supply(assets, shares, currentActor, "");
-    }
-
-    /// @dev Clamped `onBehalf` and `assets` amount
-    function morpho_supply_clamped_byShares(uint256 shares, address receiver) public {
-        morpho_supply(0, shares, currentActor, "");
-    }
-
-    /// @dev Clamped `onBehalf` and `shares` amount
-    function morpho_supply_clamped_byAssets(uint256 assets, address receiver) public {
-        morpho_supply(assets, 0, currentActor, "");
+    function morpho_repay_clamped(uint256 assets, uint256 shares, uint256 onBehalfEntropy) public {
+        address onBehalf = _getActors()[onBehalfEntropy % _getActors().length];
+        
+        morpho_repay(assets, shares, onBehalf, "");
     }
 
     /// @dev Hardcoded empty data for liquidation (no callback triggered)
-    /// @dev Use currentActor as onBehalf (set by fuzzer via switch)
-    function morpho_supplyCollateral_clamped(uint256 assets) public {
-        morpho_supplyCollateral(assets, currentActor, "");
+    function morpho_repay_leaveBorrowShares_clamped(uint256 leaveBorrowShares, uint256 onBehalfEntropy) public {
+        address onBehalf = _getActors()[onBehalfEntropy % _getActors().length];
+        
+        (,uint256 maxBorrowShares,) = morpho.position(marketParams.id(), onBehalf);
+        leaveBorrowShares %= (maxBorrowShares + 1);
+        uint256 actualRepay = maxBorrowShares - leaveBorrowShares;
+
+        morpho_repay(actualRepay, 0, onBehalf, "");
     }
 
-    /// @dev Use currentActor as onBehalf (set by fuzzer via switch)
-    function morpho_withdraw_clamped(uint256 assets, uint256 shares, address receiver) public {
-        morpho_withdraw(assets, shares, currentActor, receiver);
+    /// @dev Hardcoded empty data for liquidation (no callback triggered)
+    function morpho_liquidate_clamped(uint256 borrowerEntropy, uint256 seizedAssets, uint256 repaidShares) public {
+        address borrower = _getActors()[borrowerEntropy % _getActors().length];
+        morpho_liquidate(borrower, seizedAssets, repaidShares, "");
     }
 
-    /// @dev Clamped `onBehalf` and `assets` amount
-    function morpho_withdraw_clamped_byShares(uint256 shares, address receiver) public {
-        morpho_withdraw(0, shares, currentActor, receiver);
+    /// @dev Hardcoded empty data for liquidation (no callback triggered)
+    function morpho_liquidate_leaveCollateralAssets_clamped(uint256 borrowerEntropy, uint256 leaveCollateralAssets) public {
+        address borrower = _getActors()[borrowerEntropy % _getActors().length];
+
+        (,,uint256 maxCollateral) = morpho.position(marketParams.id(), borrower);
+        leaveCollateralAssets %= (maxCollateral + 1);
+        uint256 actualSeizedAssets = maxCollateral - leaveCollateralAssets;
+        
+        morpho_liquidate(borrower, actualSeizedAssets, 0, "");
     }
 
-    /// @dev Clamped `onBehalf` and `shares` amount
-    function morpho_withdraw_clamped_byAssets(uint256 assets, address receiver) public {
-        morpho_withdraw(assets, 0, currentActor, receiver);
+    /// @dev Hardcoded empty data for liquidation (no callback triggered)
+    function morpho_supplyCollateral_clamped(uint256 assets, uint256 onBehalfEntropy) public {
+        address onBehalf = _getActors()[onBehalfEntropy % _getActors().length];
+        morpho_supplyCollateral(assets, onBehalf, "");
     }
 
-    /// @dev Use currentActor as onBehalf (set by fuzzer via switch)
-    function morpho_withdrawCollateral_clamped(uint256 assets, address receiver) public {
-        morpho_withdrawCollateral(assets, currentActor, receiver);
+    /// @dev Hardcoded empty data for liquidation (no callback triggered)
+    function morpho_withdrawCollateral_clamped(uint256 assets, uint256 onBehalfEntropy, address receiver) public {
+        address onBehalf = _getActors()[onBehalfEntropy % _getActors().length];
+        morpho_withdrawCollateral(assets, onBehalf, receiver);
     }
 
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
@@ -199,11 +130,16 @@ abstract contract MorphoTargets is
         morpho.borrow(marketParams, assets, shares, onBehalf, receiver);
 
         canaryBorrow = true;
+
+        if (_getActor() == onBehalf) {
+            canaryBorrowSelf = true;
+        } else {
+            canaryBorrowOnBehalf = true;
+        }
     }
 
     /// @dev Create Morpho market and record the market
-    /// @dev Check if the marketId is duplicated
-    /// @dev Applied to the base target because every clamped or overload fn that calls this base will have the same check, and the market will be added properly from all creation handlers
+    /// @dev Does not add to MarketManager; only clamped operable markets should be rotated by switchMarket.
     function morpho_createMarket(MarketParams memory marketParams) public asActor {
         morpho.createMarket(marketParams);
         
@@ -225,8 +161,21 @@ abstract contract MorphoTargets is
 
     function morpho_liquidate(address borrower, uint256 seizedAssets, uint256 repaidShares, bytes memory data) public asActor {
         morpho.liquidate(marketParams, borrower, seizedAssets, repaidShares, data);
+        (,,uint256 maxCollateral) = morpho.position(marketParams.id(), borrower);
 
         canaryLiquidate = true;
+
+        if (_getActor() == borrower) {
+            canaryLiquidateSelf = true;
+        } else {
+            canaryLiquidateBorrower = true;
+        }
+
+        // Bad debt occurs when borrower's collateral is fully seized but debt remains
+        if (maxCollateral == 0){
+            canaryLiquidateBadDebt = true;
+        }
+
 
     }
 
@@ -234,6 +183,12 @@ abstract contract MorphoTargets is
         morpho.repay(marketParams, assets, shares, onBehalf, data);
         
         canaryRepay = true;
+        
+        if (_getActor() == onBehalf) {
+            canaryRepaySelf = true;
+        } else {
+            canaryRepayOnBehalf = true;
+        }
     }
 
     function morpho_setAuthorization(address authorized, bool newIsAuthorized) public asActor {
@@ -260,12 +215,24 @@ abstract contract MorphoTargets is
         morpho.supply(marketParams, assets, shares, onBehalf, data);
 
         canarySupply = true;
+        
+        if (_getActor() == onBehalf) {
+            canarySupplySelf = true;
+        } else {
+            canarySupplyOnBehalf = true;
+        }
     }
 
     function morpho_supplyCollateral(uint256 assets, address onBehalf, bytes memory data) public asActor {
         morpho.supplyCollateral(marketParams, assets, onBehalf, data);
         
         canarySupplyCollateral = true;
+        
+        if (_getActor() == onBehalf) {
+            canarySupplyCollateralSelf = true;
+        } else {
+            canarySupplyCollateralOnBehalf = true;
+        }
     }
 
     function morpho_withdraw(uint256 assets, uint256 shares, address onBehalf, address receiver) public asActor {
@@ -273,11 +240,22 @@ abstract contract MorphoTargets is
 
         canaryWithdraw = true;
         
+        if (_getActor() == onBehalf) {
+            canaryWithdrawSelf = true;
+        } else {
+            canaryWithdrawOnBehalf = true;
+        }
     }
 
     function morpho_withdrawCollateral(uint256 assets, address onBehalf, address receiver) public asActor {
         morpho.withdrawCollateral(marketParams, assets, onBehalf, receiver);
         
         canaryWithdrawCollateral = true;
+        
+        if (_getActor() == onBehalf) {
+            canaryWithdrawCollateralSelf = true;
+        } else {
+            canaryWithdrawCollateralOnBehalf = true;
+        }
     }
 }
