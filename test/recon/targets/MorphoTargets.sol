@@ -18,7 +18,7 @@ abstract contract MorphoTargets is
     Properties
 {
     using MarketParamsLib for MarketParams;
-    
+
     /// CUSTOM TARGET FUNCTIONS - Add your own target functions here ///
 
     //////////// CLAMPED FUNCTIONS ////////////
@@ -53,6 +53,12 @@ abstract contract MorphoTargets is
         address onBehalf = _getActors()[onBehalfEntropy % _getActors().length];
         morpho_supply(assets, shares, onBehalf, "");
     }
+
+    function morpho_withdraw_clamped(uint256 assets, uint256 shares, uint256 onBehalfEntropy) public {
+        address onBehalf = _getActors()[onBehalfEntropy % _getActors().length];
+        morpho_withdraw(assets, shares, onBehalf, onBehalf);
+    }
+
 
     /// @dev Clamped withdraw that leaves some/none supply shares in the position
     /// @dev Useful for testing partial withdrawals without fully draining the position (0 = fully drain)
@@ -122,13 +128,60 @@ abstract contract MorphoTargets is
 
     /// AUTO GENERATED TARGET FUNCTIONS - WARNING: DO NOT DELETE OR MODIFY THIS LINE ///
 
-    function morpho_accrueInterest() public asActor {
+    function morpho_accrueInterest() public updateGhosts() asActor {
+        (
+            uint128 before__market_totalSupplyAssets,
+            ,
+            uint128 before__market_totalBorrowAssets,
+            uint128 before__market_totalBorrowShares,
+            ,
+        ) = morpho.market(marketParams.id());
+        
         morpho.accrueInterest(marketParams);
+        
+        (
+            uint128 after__market_totalSupplyAssets,
+            ,
+            uint128 after__market_totalBorrowAssets,
+            uint128 after__market_totalBorrowShares,
+            ,
+        ) = morpho.market(marketParams.id());
+
+        // Inlined properties:
+        /// @dev total supply assets and total borrow assets should be the same or increase after accruing interest
+        gte(
+            after__market_totalSupplyAssets,
+            before__market_totalSupplyAssets,
+            "accrue interest: total supply assets decreased"
+        );
+
+        gte(
+            after__market_totalBorrowAssets,
+            before__market_totalBorrowAssets,
+            "accrue interest: total borrow assets decreased"
+        );
+
+        /// @dev The increase should apply symmetrically to supply and borrow side
+        eq(
+            after__market_totalSupplyAssets - before__market_totalSupplyAssets,
+            after__market_totalBorrowAssets - before__market_totalBorrowAssets,
+            "accrue interest: supply asset delta != borrow asset delta"
+        );
+
+        eq(
+            after__market_totalBorrowShares,
+            before__market_totalBorrowShares,
+            "accrue interest: total borrow shares changed"
+        );
     }
 
-    function morpho_borrow(uint256 assets, uint256 shares, address onBehalf, address receiver) public asActor {
+    function morpho_borrow(uint256 assets, uint256 shares, address onBehalf, address receiver) public updateGhostsFor(onBehalf) asActor {
+        (,uint128 before__user_borrowShares,) = morpho.position(marketParams.id(), onBehalf);
+        
         morpho.borrow(marketParams, assets, shares, onBehalf, receiver);
 
+        (,uint128 after__user_borrowShares,) = morpho.position(marketParams.id(), onBehalf);
+        
         canaryBorrow = true;
 
         if (_getActor() == onBehalf) {
@@ -136,13 +189,33 @@ abstract contract MorphoTargets is
         } else {
             canaryBorrowOnBehalf = true;
         }
+
+        // Inlined properties:
+
+        /// @dev If borrow shares, the *exact* input shares should be assigned to the borrower
+        if (shares > 0) {
+            eq(
+                after__user_borrowShares,
+                before__user_borrowShares + shares,
+                "borrow by shares: borrower share delta != input shares"
+            );
+        }
+
+        /// @dev If borrow by assets, the borrower must receive some borrow shares
+        if (assets > 0) {
+            gt(
+                after__user_borrowShares, 
+                before__user_borrowShares, 
+                "borrow by assets: should increase user's borrow shares"
+            );
+        }
     }
 
     /// @dev Create Morpho market and record the market
     /// @dev Does not add to MarketManager; only clamped operable markets should be rotated by switchMarket.
     function morpho_createMarket(MarketParams memory marketParams) public asActor {
         morpho.createMarket(marketParams);
-        
+
         canaryCreateMarket = true;
     }
 
@@ -159,7 +232,7 @@ abstract contract MorphoTargets is
         morpho.flashLoan(token, assets, data);
     }
 
-    function morpho_liquidate(address borrower, uint256 seizedAssets, uint256 repaidShares, bytes memory data) public asActor {
+    function morpho_liquidate(address borrower, uint256 seizedAssets, uint256 repaidShares, bytes memory data) public updateGhostsFor(borrower) asActor {
         morpho.liquidate(marketParams, borrower, seizedAssets, repaidShares, data);
         (,,uint256 maxCollateral) = morpho.position(marketParams.id(), borrower);
 
@@ -170,17 +243,17 @@ abstract contract MorphoTargets is
         } else {
             canaryLiquidateBorrower = true;
         }
-
         // Bad debt occurs when borrower's collateral is fully seized but debt remains
         if (maxCollateral == 0){
             canaryLiquidateBadDebt = true;
         }
 
-
     }
 
-    function morpho_repay(uint256 assets, uint256 shares, address onBehalf, bytes memory data) public asActor {
+    function morpho_repay(uint256 assets, uint256 shares, address onBehalf, bytes memory data) public updateGhostsFor(onBehalf) asActor {
+        (,uint256 before__user_borrowShares,) = morpho.position(marketParams.id(), onBehalf);
         morpho.repay(marketParams, assets, shares, onBehalf, data);
+        (,uint256 after__user_borrowShares,) = morpho.position(marketParams.id(), onBehalf);
         
         canaryRepay = true;
         
@@ -188,6 +261,25 @@ abstract contract MorphoTargets is
             canaryRepaySelf = true;
         } else {
             canaryRepayOnBehalf = true;
+        }
+
+        // Inlined properties:
+        /// @dev Repay-by-shares should burn exactly the input shares from the borrower.
+        if (shares > 0) {
+            eq(
+                after__user_borrowShares,
+                before__user_borrowShares - shares,
+                "repay by shares: borrower share delta != input shares"
+            );
+        }
+
+        /// @dev Repay-by-assets should burn borrow shares from the borrower.
+        if (assets > 0) {
+            lt(
+                after__user_borrowShares,
+                before__user_borrowShares,
+                "repay by assets: borrower borrow shares did not decrease"
+            );
         }
     }
 
@@ -203,16 +295,21 @@ abstract contract MorphoTargets is
         morpho.setFee(marketParams, newFee);
     }
 
-    function morpho_setFeeRecipient(address newFeeRecipient) public asActor {
-        morpho.setFeeRecipient(newFeeRecipient);
+    /// @dev Hardcoded fee recipient to one of the test actors for testing purposes
+    function morpho_setFeeRecipient(address) public asActor {
+        morpho.setFeeRecipient(_getActor());
     }
 
     function morpho_setOwner(address newOwner) public asActor {
         morpho.setOwner(newOwner);
     }
 
-    function morpho_supply(uint256 assets, uint256 shares, address onBehalf, bytes memory data) public asActor {
+    /// @dev Internal only so all fuzz entrypoints route through clamped handlers
+    /// @dev This keeps `onBehalf` inside the tracked actor set, which is required for aggregate accounting properties that sum over `_getActors()`
+    function morpho_supply(uint256 assets, uint256 shares, address onBehalf, bytes memory data) internal updateGhostsFor(onBehalf) asActor {
+        (uint256 before__user_supplyShares,,) = morpho.position(marketParams.id(), onBehalf);
         morpho.supply(marketParams, assets, shares, onBehalf, data);
+        (uint256 after__user_supplyShares,,) = morpho.position(marketParams.id(), onBehalf);
 
         canarySupply = true;
         
@@ -221,11 +318,43 @@ abstract contract MorphoTargets is
         } else {
             canarySupplyOnBehalf = true;
         }
+
+        // Inlined properties:
+        /// @dev If supply by shares, the *exact* input shares should be received by the supplier (unless fee recipient, who can receive more shares than input)
+        if (shares > 0) {
+            if (onBehalf == morpho.feeRecipient()) {
+                gte(
+                    after__user_supplyShares, 
+                    before__user_supplyShares + shares, 
+                    "supply by shares: fee recipient share delta < input shares"
+                );
+            } else {
+                eq(
+                    after__user_supplyShares, 
+                    before__user_supplyShares+ shares, 
+                    "supply by shares: supplier share delta != input shares"
+                );
+
+            }
+        }
+        /// @dev If supply by assets, the user must receive some supply shares
+        if (assets > 0 && onBehalf != morpho.feeRecipient()) {
+            gt(
+                after__user_supplyShares, 
+                before__user_supplyShares, 
+                "supply by assets: nonzero assets minted zero shares"
+            );
+        }
     }
 
-    function morpho_supplyCollateral(uint256 assets, address onBehalf, bytes memory data) public asActor {
+    /// @dev Internal only so all fuzz entrypoints route through clamped handlers
+    /// @dev This keeps `onBehalf` inside the tracked actor set, which is required for aggregate accounting properties that sum over `_getActors()`
+    function morpho_supplyCollateral(uint256 assets, address onBehalf, bytes memory data) internal updateGhostsFor(onBehalf) asActor {
+        (,,uint256 before__user_collateral) = morpho.position(marketParams.id(), onBehalf);
+
         morpho.supplyCollateral(marketParams, assets, onBehalf, data);
-        
+        (,,uint256 after__user_collateral) = morpho.position(marketParams.id(), onBehalf);
+
         canarySupplyCollateral = true;
         
         if (_getActor() == onBehalf) {
@@ -233,10 +362,19 @@ abstract contract MorphoTargets is
         } else {
             canarySupplyCollateralOnBehalf = true;
         }
+
+        // Inlined properties:
+        eq(
+            after__user_collateral,
+            before__user_collateral + assets,
+            "supplyCollateral: users' collateral delta != input assets "
+        );
     }
 
-    function morpho_withdraw(uint256 assets, uint256 shares, address onBehalf, address receiver) public asActor {
+    function morpho_withdraw(uint256 assets, uint256 shares, address onBehalf, address receiver) public updateGhostsFor(onBehalf) asActor {
+        (uint256 before__user_supplyShares,,) = morpho.position(marketParams.id(), onBehalf);
         morpho.withdraw(marketParams, assets, shares, onBehalf, receiver);
+        (uint256 after__user_supplyShares,,) = morpho.position(marketParams.id(), onBehalf);
 
         canaryWithdraw = true;
         
@@ -245,11 +383,41 @@ abstract contract MorphoTargets is
         } else {
             canaryWithdrawOnBehalf = true;
         }
+
+        /// @dev If withdraw by shares, the exact input shares should be burned unless fee shares offset the burn.
+        if (shares > 0) {
+            if (onBehalf == morpho.feeRecipient()) {
+                if (before__user_supplyShares > after__user_supplyShares) {
+                    lte(
+                        after__user_supplyShares,
+                        before__user_supplyShares - shares,
+                        "withdraw by shares: fee recipient net share decrease exceeds input shares"
+                    );
+                }
+            } else {
+                eq(
+                    after__user_supplyShares, 
+                    before__user_supplyShares - shares, 
+                    "withdraw by shares: supplier share delta != input shares"
+                );
+
+            }
+        }
+        /// @dev If withdraw by assets, the user's supply shares should decrease.
+        if (assets > 0 && onBehalf != morpho.feeRecipient()) {
+            lt(
+                after__user_supplyShares, 
+                before__user_supplyShares, 
+                "withdraw by assets: supplier shares did not decrease"
+            );
+        }
     }
 
-    function morpho_withdrawCollateral(uint256 assets, address onBehalf, address receiver) public asActor {
+    function morpho_withdrawCollateral(uint256 assets, address onBehalf, address receiver) public updateGhostsFor(onBehalf) asActor {
+        (,,uint256 before__user_collateral) = morpho.position(marketParams.id(), onBehalf);
         morpho.withdrawCollateral(marketParams, assets, onBehalf, receiver);
-        
+        (,,uint256 after__user_collateral) = morpho.position(marketParams.id(), onBehalf);
+
         canaryWithdrawCollateral = true;
         
         if (_getActor() == onBehalf) {
@@ -257,5 +425,12 @@ abstract contract MorphoTargets is
         } else {
             canaryWithdrawCollateralOnBehalf = true;
         }
+
+        // Inlined properties:
+        eq(
+            after__user_collateral,
+            before__user_collateral - assets,
+            "withdrawCollateral: users' collateral delta != input assets "
+        );
     }
 }

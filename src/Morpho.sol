@@ -31,6 +31,11 @@ import {SharesMathLib} from "./libraries/SharesMathLib.sol";
 import {MarketParamsLib} from "./libraries/MarketParamsLib.sol";
 import {SafeTransferLib} from "./libraries/SafeTransferLib.sol";
 
+//////////////////////////// DEBUG ////////////////////////////
+
+import {console} from "forge-std/Test.sol";
+
+
 /// @title Morpho
 /// @author Morpho Labs
 /// @custom:contact security@morpho.org
@@ -329,11 +334,13 @@ contract Morpho is IMorphoStaticTyping {
         require(receiver != address(0), ErrorsLib.ZERO_ADDRESS);
         // No need to verify that onBehalf != address(0) thanks to the following authorization check.
         require(_isSenderAuthorized(onBehalf), ErrorsLib.UNAUTHORIZED);
+        console.log("withdrawCollateral: _isSenderAuthorized passed");
 
         _accrueInterest(marketParams, id);
 
+        console.log("withdrawCollateral: accrue interest done");
         position[id][onBehalf].collateral -= assets.toUint128();
-
+        console.log("withdrawCollateral: collateral updated");
         require(_isHealthy(marketParams, id, onBehalf), ErrorsLib.INSUFFICIENT_COLLATERAL);
 
         emit EventsLib.WithdrawCollateral(id, msg.sender, onBehalf, receiver, assets);
@@ -399,6 +406,9 @@ contract Morpho is IMorphoStaticTyping {
             market[id].totalSupplyAssets -= badDebtAssets.toUint128();
             market[id].totalBorrowShares -= badDebtShares.toUint128();
             position[id][borrower].borrowShares = 0;
+
+            //@audit update ghost_totalbadDebt for testing purposes
+            ghost_totalBadDebt[id] += badDebtAssets.toUint128();
         }
 
         // `repaidAssets` may be greater than `totalBorrowAssets` by 1.
@@ -500,6 +510,9 @@ contract Morpho is IMorphoStaticTyping {
                 market[id].totalSupplyShares += feeShares.toUint128();
             }
 
+            //@audit update ghost_totalInterest for testing purposes
+            ghost_totalInterest[id] += interest.toUint128();
+
             emit EventsLib.AccrueInterest(id, borrowRate, interest, feeShares);
         }
 
@@ -552,4 +565,22 @@ contract Morpho is IMorphoStaticTyping {
             }
         }
     }
+
+    /////////////////////////////// TEST HELPER FUNCTIONS ///////////////////////////////
+
+    mapping(Id => uint128) internal ghost_totalInterest;
+    mapping(Id => uint128) internal ghost_totalBadDebt;
+
+    function isHealthy(MarketParams memory marketParams, address user) external view returns (bool) {
+        return _isHealthy(marketParams, marketParams.id(), user);
+    }
+
+    function get_test_ghostTotalInterest(Id marketId) external view returns (uint128) {
+        return ghost_totalInterest[marketId];
+    }
+
+    function get_test_ghostTotalBadDebt(Id marketId) external view returns (uint128) {
+        return ghost_totalBadDebt[marketId];
+    }
+
 }
