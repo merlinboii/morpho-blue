@@ -40,9 +40,20 @@ abstract contract MarketManager {
         return _marketData[__marketId];
     }
 
+    function _getMarketId() internal view returns (bytes32) {
+        if (__marketId == bytes32(0)) {
+            revert NotMarketSetup();
+        }
+        return __marketId;
+    }
+
     /// @notice Returns all market ids being used
     function _getMarketIds() internal view returns (bytes32[] memory) {
         return _marketIds.values();
+    }
+
+    function _getMarketParams(bytes32 id) internal view returns (MarketParams memory) {
+        return _marketData[id];
     }
 
     /// @notice Adds a new market and adds it to the list of markets
