@@ -24,7 +24,7 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
 
     //////////// CANARY TESTS ////////////
 
-    // forge test --match-test test_canary_morpho_withdrawOnBehalf_pxtw -vvv
+// forge test --match-test test_canary_morpho_withdrawOnBehalf_pxtw -vvv
     function test_canary_morpho_withdrawOnBehalf_pxtw() public {
     
         morpho_createMarket_clamped(0,0);
@@ -406,6 +406,154 @@ contract CryticToFoundry is Test, TargetFunctions, FoundryAsserts {
         morpho_borrow_clamped(0,1,0,0x00000000000000000000000000000000DeaDBeef);
     
         canary_morpho_borrow();
+    
+    }
+
+    //////////////////// Properties ////////////////////
+
+// forge test --match-test test_property_market_borrowAssets_zero_iff_borrowShares_zero_9xm3 -vvv
+    function test_property_market_borrowAssets_zero_iff_borrowShares_zero_9xm3() public {
+    
+        morpho_createMarket_clamped(0,0);
+    
+        switchMarket(0);
+    
+        morpho_supplyCollateral_clamped(1,0);
+    
+        oracleMock_setPrice(2000138670221804858635157882413072872);
+    
+        morpho_borrow_clamped(0,1,0,0x00000000000000000000000000000000DeaDBeef);
+
+        //@audit result: Market({ totalSupplyAssets: 0, totalSupplyShares: 0, totalBorrowAssets: 0, totalBorrowShares: 1, lastUpdate: 1, fee: 0 })
+        property_market_borrowAssets_zero_iff_borrowShares_zero();
+    
+    }
+
+// 🚸 forge test --match-test test_doomsday_noBorrow_allUsersCanWithdraw_loan_jg7f -vvv
+    function test_doomsday_noBorrow_allUsersCanWithdraw_loan_jg7f() public {
+    
+        morpho_createMarket_clamped(0,0);
+    
+        switchMarket(0);
+    
+        morpho_supply_clamped(1,0,0);
+    
+        mockIRM_setFixedRate(61414216387259957501412125360490);
+    
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+        //@audit seems caused by overflow in `_accrueInterest()`
+        doomsday_noBorrow_allUsersCanWithdraw_loan();
+    
+    }
+
+// 🚸 forge test --match-test test_doomsday_noBorrow_allUsersCanWithdraw_collateral_vc49 -vvv
+    function test_doomsday_noBorrow_allUsersCanWithdraw_collateral_vc49() public {
+    
+        morpho_createMarket_clamped(0,0);
+    
+        switchMarket(0);
+    
+        morpho_supplyCollateral_clamped(1,0);
+    
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 1);
+        mockIRM_setFixedRate(61438198585342590510108567423565);
+        //@audit seems caused by overflow in `_accrueInterest()`
+        doomsday_noBorrow_allUsersCanWithdraw_collateral();
+    
+    }
+
+// forge test --match-test test_shortcut_morpho_accrue_first_then_borrow_byShares_qwli -vvv
+    function test_shortcut_morpho_accrue_first_then_borrow_byShares_qwli() public {
+    
+        morpho_createMarket_clamped(0,0);
+    
+        switchMarket(0);
+    
+        morpho_supplyCollateral_clamped(1,0);
+    
+        oracleMock_setPrice(2000138670221804858635157882413072872);
+
+        //@audit result: Market({ totalSupplyAssets: 0, totalSupplyShares: 0, totalBorrowAssets: 0, totalBorrowShares: 1, lastUpdate: 1, fee: 0 })
+        shortcut_morpho_accrue_first_then_borrow_byShares(1,0,0x00000000000000000000000000000000DeaDBeef);
+    
+    }
+
+// 🚸 forge test --match-test test_shortcut_morpho_accrue_first_then_repay_byShares_bszo -vvv
+    function test_shortcut_morpho_accrue_first_then_repay_byShares_bszo() public {
+    
+        morpho_createMarket_clamped(0,0);
+    
+        switchMarket(0);
+    
+        morpho_supplyCollateral_clamped(1,0);
+    
+        oracleMock_setPrice(2000128600597676267434175840638218406);
+    
+        morpho_borrow_clamped(0,1,0,0x00000000000000000000000000000000DeaDBeef);
+        
+        shortcut_morpho_accrue_first_then_repay_byShares(1,0);
+    
+    }
+
+// 🚸 forge test --match-test test_shortcut_morpho_accrue_first_then_liquidate_byAssets_28ib -vvv
+    function test_shortcut_morpho_accrue_first_then_liquidate_byAssets_28ib() public {
+    
+        morpho_createMarket_clamped(0,0);
+    
+        switchMarket(0);
+    
+        morpho_supplyCollateral_clamped(1,0);
+    
+        oracleMock_setPrice(2000072179590754583942233864462067728);
+    
+        morpho_borrow_clamped(0,1,0,0x00000000000000000000000000000000DeaDBeef);
+    
+        oracleMock_setPrice(0);
+    
+        morpho_supplyCollateral_clamped(1,0);
+    
+        shortcut_morpho_accrue_first_then_liquidate_byAssets(1,46521550604090151335);
+    
+    }
+
+// 🚸 forge test --match-test test_shortcut_morpho_accrue_first_then_withdraw_byShares_fa69 -vvv
+    function test_shortcut_morpho_accrue_first_then_withdraw_byShares_fa69() public {
+    
+        morpho_createMarket_clamped(0,0);
+    
+        switchMarket(0);
+    
+        morpho_supply_clamped(1,0,0);
+    
+        shortcut_morpho_accrue_first_then_withdraw_byShares(1,0);
+    
+    }
+
+// 🚸 forge test --match-test test_doomsday_supplyByAssetWithdrawShares_fg04 -vvv
+    function test_doomsday_supplyByAssetWithdrawShares_fg04() public {
+    
+        morpho_createMarket_clamped(0,0);
+    
+        switchMarket(0);
+    
+        morpho_supplyCollateral_clamped(1,0);
+    
+        oracleMock_setPrice(2000138670221804858635157882413072872);
+    
+        morpho_supply_clamped(1,0,0);
+    
+        morpho_borrow_clamped(1,0,473554153303315079422746268311904616565055785,0x00000000000000000000000000000000DeaDBeef);
+    
+        mockIRM_setFixedRate(2421143598876493);
+    
+        vm.warp(block.timestamp + 128025);
+    
+        vm.roll(block.number + 1);
+        
+        //@audit might bc low `LOSS_TOLERANCE` 
+        doomsday_supplyByAssetWithdrawShares(5);
     
     }
 }
